@@ -8,6 +8,7 @@
 #include <random>
 #include <chrono>
 #include <thread>
+#include <future>
 
 namespace my_alg {
 
@@ -151,8 +152,10 @@ namespace my_alg {
         });
 
         // продолжаем рекурсию на неотсортированные концы
-        quick_sort_recursive(begin, middle1);
-        quick_sort_recursive(middle2, end);
+        auto left = std::async(std::launch::async, [&]() {
+            return quick_thread_sort(begin, middle1);
+        });
+        quick_thread_sort(middle2, end);
     }
 };
 
