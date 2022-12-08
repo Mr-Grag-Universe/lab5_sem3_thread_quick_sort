@@ -17,4 +17,5 @@ FetchContent_MakeAvailable(googletest)
 
 # Now simply link against gtest or gtest_main as needed. Eg
 add_executable(sort_tests test_main.cpp)
-target_link_libraries(sort_tests gtest_main)
+target_include_directories(sort_tests PRIVATE ../src)
+target_link_libraries(sort_tests gtest_main my_alg)
