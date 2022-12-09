@@ -46,6 +46,36 @@ namespace my_alg {
         }
     }
 
+    template<typename IteratorType>
+    void iter_right(IteratorType & iter, std::function<bool (const typename std::iterator_traits<IteratorType>::value_type & em)> comp) {
+        while (comp(*iter))
+            ++iter;
+    }
+    template<typename IteratorType>
+    void iter_left(IteratorType & iter, std::function<bool (const typename std::iterator_traits<IteratorType>::value_type & em)> comp) {
+        while (!comp(*iter))
+            --iter;
+    }
+
+    template<typename IteratorType>
+    IteratorType thread_partition(IteratorType begin, IteratorType end, std::function<bool (const typename std::iterator_traits<IteratorType>::value_type & em)> comp) {
+        --end;
+        while (true) {
+            // while (comp(*begin))
+            //     ++begin;
+            std::thread th1(iter_right<IteratorType>, std::ref(begin), comp);
+            // while (!comp(*end))
+            //     --end;
+            std::thread th2(iter_left<IteratorType>, std::ref(end), comp);
+            th1.join();
+            th2.join();
+
+            if (std::distance(begin, end) <= 0)
+                return end+1;
+            std::swap(*(begin++), *(end--));
+        }
+    }
+
     /// @brief рекурсивный вариант быстрой сортировки
     /// @brief опорным элементом выбирается медиана
     /// @tparam IteratorType - тип передаваемых итераторов
@@ -76,12 +106,12 @@ namespace my_alg {
             return !(pivot < em);
         });
 
-        [[maybe_unused]] auto middle3 = std::partition(begin, end, [pivot](const auto& em) {
-            return !(pivot < em);
-        });
-        [[maybe_unused]] auto middle4 = std::partition(begin, end, [pivot](const auto& em) {
-            return em < pivot;
-        });
+        // [[maybe_unused]] auto middle3 = std::partition(begin, end, [pivot](const auto& em) {
+        //     return !(pivot < em);
+        // });
+        // [[maybe_unused]] auto middle4 = std::partition(begin, end, [pivot](const auto& em) {
+        //     return em < pivot;
+        // });
         // std::cout << "m3 - m2: " << std::distance(middle3, middle2) << ";\n";
         // std::cout << "m4 - m1: " << std::distance(middle4, middle1) << ";\n";
 
@@ -127,8 +157,15 @@ namespace my_alg {
         stream << std::endl;
     }
 
-    template<typename IteratorType>
+    std::mutex m;
+    template<typename IteratorType, size_t max_number> //число
     void quick_thread_sort(IteratorType begin, IteratorType end) {
+        static size_t depth = 0;
+        if (depth < max_number) {
+            // m.lock();
+            depth++;
+            // m.unlock();
+        }
         // тип данных в итерируемой структуре данных
         using Type = typename std::iterator_traits<IteratorType>::value_type;
 
@@ -151,11 +188,30 @@ namespace my_alg {
             return !(pivot < em);
         });
 
+        // std::cout << depth << std::endl;
         // продолжаем рекурсию на неотсортированные концы
-        auto left = std::async(std::launch::async, [&]() {
-            return quick_thread_sort(begin, middle1);
-        });
-        quick_thread_sort(middle2, end);
+        std::unique_ptr<std::thread> th;
+        bool flag = 0;
+        if (max_number > depth) {
+            flag = 1;
+            // std::cout << "new_thread\n";
+            th = std::unique_ptr<std::thread>(new std::thread(quick_thread_sort<IteratorType, max_number>, begin, middle1));
+            // auto left = std::async(std::launch::async, [&]() {
+            //     return quick_thread_sort<IteratorType, max_number>(begin, middle1);
+            // });
+        } else {
+           quick_thread_sort<IteratorType, max_number>(begin, middle1);
+        }
+        quick_thread_sort<IteratorType, max_number>(middle2, end);
+        if (flag) {
+            // std::cout << "end thread\n";
+            th->join();
+        }
+        if (depth && depth <= max_number) {
+            // m.lock();
+            --depth;
+            // m.unlock();
+        }
     }
 };
 
